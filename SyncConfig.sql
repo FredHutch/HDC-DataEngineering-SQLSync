@@ -13,27 +13,34 @@ create table dbo.SyncConfig
 ,SourceSchema varchar(128) not null
 ,SourceTable varchar(128) not null
 ,SourceUpdateDateColumn varchar(128) not null
-
-,IsActive bit not null --whether to process this table
-,ProcessMode varchar(32) not null -- only support type-2 and type-1
 ,PrimaryKeyColumns xml not null --what is the primary key for this table?
+
+-- categorization columns
+,ProcessMode varchar(32) not null -- only support type-2 and type-1
 ,TableGroup varchar(128) null
 
--- SK information. The name of the SK mapping table, and the column name used for SKs
+-- Surrogate Key (SK) information. The name of the SK mapping table, and the column name used for SKs
 ,SurrogateTable varchar(128) not null
 ,SurrogateKeyColumn varchar(128) not null
 
--- type-2 information
+-- type-2 columns
 ,TargetBeginDateColumn varchar(128) null --if specified, this is for a type-2 table
 ,TargetEndDateColumn varchar(128) null --if specified, this is for a type-2 table
 
--- type-1 information
+-- type-1 columns
 ,TargetActiveColumn varchar(128) null
+
+-- type-1 and type-2 columns
 ,TargetCreateDateColumn varchar(128) null
 ,TargetUpdateDateColumn varchar(128) null
 
--- cleanup, reconcile, and state information
-,CleanUpSourceAfterRun bit not null --  if enabled, the sync procedure will clean up the source data after a successful run
+-- enable/disable bits
+,IsActive bit not null  --whether to process this table
+,IsSourceCleanupAfterRun bit not null --  if enabled, the sync procedure will clean up the source data after a successful run
+,IsSourceToLoadCopy bit not null --if true, will copy source data to a 'load' table. Useful for de-duplication performance
+,IsDiff bit not null -- if true, will do a 'diff' to identify which rows have changed. Useful to minimize updates to the target table
+
+-- reconcile, and state information
 ,ReconcileTable varchar(128) null --if specified, use this for reconciling the data
 ,SourceMaxLoadDate datetime null -- the max(SourceUpdateDateColumn) for the last successful run
 ,constraint ProcessModeColumnCheck check ((TargetActiveColumn is not null and TargetUpdateDateColumn is not null 
