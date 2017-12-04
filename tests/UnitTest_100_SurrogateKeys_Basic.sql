@@ -8,7 +8,7 @@ end
 go
 
 create table dbo.UnitTest_SurrogateKeys_TargetTable1
-(HDCSurrogateKeyID int not null
+(UnitTestSurrogateKeyID bigint not null
 ,PKColumn varchar(400) not null
 ,constraint PKUnitTest_SurrogateKeys_TargetTable1 primary key clustered (PKColumn)
 )
@@ -17,7 +17,7 @@ go
 
 UPDATE dbo.SyncConfig
 SET SurrogateTable = 'UnitTest_SurrogateKeys_TargetTable1'
-,SurrogateKeyColumn = 'HDCSurrogateKeyID'
+,SurrogateKeyColumn = 'UnitTestSurrogateKeyID'
 WHERE TargetTable = 'UnitTest_TargetTable1'
 go
 
@@ -49,14 +49,14 @@ insert into dbo.UnitTest_SourceTable1
 ,GuidColumn
 ,NvarcharColumn
 ,DateColumn
-,HDCPStagingTime)
+,UnitTestStagingTime)
 SELECT 
    PKColumn = cast(n as varchar) + cast(n as varchar)
   ,n as IntColumn
   ,newid() as GuidColumn
   ,NvarcharColumn = N'TestData='+cast(n as varchar) + cast(n as varchar)
   ,DateColumn = dateadd(ss,-1.0*n,getdate())
-  ,HDCPStagingTime = getdate()
+  ,UnitTestStagingTime = getdate()
 FROM ( SELECT ROW_NUMBER() OVER (ORDER BY n)
 FROM Nbrs ) D ( n )
 WHERE n between 501 and 1000 ; 
