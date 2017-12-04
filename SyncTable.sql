@@ -90,7 +90,7 @@ begin
       ,@SKColumn = s.SurrogateKeyColumn
       ,@PKColumnsXML = s.PrimaryKeyColumns
       ,@SourceMinUpdateDate = s.SourceMaxLoadDate
-      ,@DoCleanup = s.CleanUpSourceAfterRun
+      ,@DoCleanup = s.IsSourceCleanupAfterRun
    from dbo.SyncConfig s
    where s.TargetTable = @TargetTableName
    and s.TargetSchema = @TargetSchemaName
@@ -449,7 +449,7 @@ begin
       else
       begin
           exec dbo.WriteLog @ProcName='SyncTable',@ObjectName=@TargetLocation
-                           ,@Status='Skipped cleanup because CleanUpSourceAfterRun=0'
+                           ,@Status='Skipped cleanup because IsSourceCleanupAfterRun=0'
       end
 
 
