@@ -1,21 +1,26 @@
 # Getting Started
 
+This page will guide you through the process of getting started with the SQL Sync utility. 
+
+First, you need to decide if you want to do a *sync* or a *diff*. A sync is a way to maintain a [Type-1 table](https://en.wikipedia.org/wiki/Slowly_changing_dimension#Type_1:_overwrite), which shows *what is currently in the source*, plus *what has been deleted*. A diff is a way to maintain a [Type-2 table](https://en.wikipedia.org/wiki/Slowly_changing_dimension#Type_2:_add_new_row), which shows *what is currently in the source, and everything that has been there before*. 
+
+If you're not sure about what you want, please read about [Slowly Changing Dimensions](https://en.wikipedia.org/wiki/Slowly_changing_dimension).
 
 
+In addition, the SQL Sync utility requires a few things to be true about your source data before you can start:
 
-#### Table Requirements for a Sync
+1. Your source data should have a primary key of some kind. If you have duplicate rows you can't tell apart *with no key*, then you need to fix that problem first. 
+2. The source table must have a datetime column that identifies when new rows are added to it.
 
-* The target table must have a primary key defined
-* The source table must have a datetime column that identifies when new rows are added to it.
-* A surrogate key must be defined
-* The target table, surrogate key table, source table, and (optional) reconcile table must be created manually.
+...Ready to continue? Great!
+
 
 
 ## Setting Up Your First Sync
 
 There are 6 steps to set up your first sync.
 
-1. Fix custom code
+1. Implement custom code
 2. Pick names for things.
 3. Create the source and target tables
 4. Create a sync configuration
@@ -27,7 +32,7 @@ There are 6 steps to set up your first sync.
 
 There are 6 steps to set up your first diff.
 
-1. Fix custom code
+1. Implement custom code
 2. Pick names for things.
 3. Create the source and target tables
 4. Create a diff configuration
@@ -36,10 +41,21 @@ There are 6 steps to set up your first diff.
 
 
 
+### Implement Custom Code
 
 
+### Pick Names for Things
 
-## Configuring a table sync
+
+### Create the source and target tables
+
+The target table, surrogate key table, source table, and (optional) reconcile table must be created manually.
+
+A surrogate key must be defined
+
+The target table must have a primary key defined
+
+### Create a sync configuration
 
 To set up a sync, follow this checklist:
 
@@ -50,9 +66,16 @@ To set up a sync, follow this checklist:
 3. If you want to have the sync create surrogate keys, create a surrogate key table (if it doesn't already exist)
 4. If you want to do a reconciliation, create the reconciliation table (if it doesn't already exist)
 
-
-#### Configuring a Sync
-
 To configure a table synchronization, you must enter a row into the dbo.SyncConfig table. Each row in that table has all the metadata/configuration to synchronize 1 table (source-to-target).
 
 There is a [raw configuration template](/docs/config-template.sql) as well as an [example configuration](/docs/sample-config-type-1.sql).
+
+
+
+### Create a diff configuration
+
+
+### Run in Debug Mode
+
+
+### Run it for real
