@@ -223,9 +223,27 @@ begin
                           ,@RowsAffected=@RowsAffected
       end
 
+      -- Create index on load table
+      set @mergeSQL = 'CREATE UNIQUE CLUSTERED INDEX fakePK ON (LOAD_LOCATION) ( (SK_COLUMN) ) with (DATA_COMPRESSION = ROW)'
+      set @mergeSQL = replace(@mergeSQL, '(LOAD_LOCATION)',@LoadTableName);
+      set @mergeSQL = replace(@mergeSQL, '(SK_COLUMN)',@SKColumn);
+
+      if @Debug=1
+      begin
+         select @mergeSQL as IndexSQL
+               ,@LoadTableName as LoadTableName
+               ,@SKColumn as SKColumn
+      end
+      else
+      begin
+         exec (@mergeSQL);
+         exec dbo.WriteLog @ProcName='SyncTable',@ObjectName=@TargetLocation
+                          ,@MessageText=@mergeSQL, @Status='Created index on load table'
+      end
+
+
 
       -- PART 5: Do a diff, find the differences
-
       /* LOGIC:
       - Do a diff using a GROUP BY to figure out what data is different. 
           Load the PKs into a temp table, with 'S' or 'T' for source or target
@@ -329,25 +347,6 @@ begin
             insert
          then delete everything based on PKs and the 
       */
-      set @mergeSQL = 'CREATE UNIQUE CLUSTERED INDEX fakePK ON (LOAD_LOCATION) ( (SK_COLUMN) ) with (DATA_COMPRESSION = ROW)'
-      set @mergeSQL = replace(@mergeSQL, '(LOAD_LOCATION)',@LoadTableName);
-      set @mergeSQL = replace(@mergeSQL, '(SK_COLUMN)',@SKColumn);
-
-      if @Debug=1
-      begin
-         select @mergeSQL as MergeSQL
-               ,@LoadTableName as LoadTableName
-               ,@SKColumn as SKColumn
-      end
-      else
-      begin
-         exec (@mergeSQL);
-         exec dbo.WriteLog @ProcName='SyncTable',@ObjectName=@TargetLocation
-                          ,@MessageText=@mergeSQL, @Status='Created index on load table'
-      end
-
-
-
       set @mergeSQL = '
       MERGE (TARGET_LOCATION) as t 
       USING 

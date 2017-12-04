@@ -232,6 +232,25 @@ begin
                           ,@RowsAffected=@RowsAffected
       end
 
+      -- create an index
+      set @loadSQL = 'CREATE UNIQUE CLUSTERED INDEX fakePK ON (LOAD_LOCATION) ( (SK_COLUMN) ) with (DATA_COMPRESSION = ROW)'
+      set @loadSQL = replace(@loadSQL, '(LOAD_LOCATION)',@LoadTableName);
+      set @loadSQL = replace(@loadSQL, '(SK_COLUMN)',@SKColumn);
+
+      if @Debug=1
+      begin
+         select @loadSQL as IndexSQL
+               ,@LoadTableName as LoadTableName
+               ,@SKColumn as SKColumn
+      end
+      else
+      begin
+         exec (@loadSQL);
+         exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
+                          ,@MessageText=@loadSQL, @Status='Created index on load table'
+      end
+
+
 
       -- PART 5: Do a diff, find the differences
 
@@ -305,7 +324,7 @@ begin
       set @diffSQL = replace(@diffSQL, '(LOAD_LOCATION)', @LoadTableName)
       set @diffSQL = replace(@diffSQL, '(SK_COLUMN)',@SKColumn)
       set @diffSQL = replace(@diffSQL, '(DIFF_LOCATION)',@DiffTableName)
-     set @diffSQL = replace(@diffSQL, '(TARGET_ENDDATE_COLUMN)',@TargetEndDateColumn)
+      set @diffSQL = replace(@diffSQL, '(TARGET_ENDDATE_COLUMN)',@TargetEndDateColumn)
 
 
       if @Debug=1
@@ -338,25 +357,6 @@ begin
             insert
          then delete everything based on PKs and the 
       */
-      set @mergeSQL = 'CREATE UNIQUE CLUSTERED INDEX fakePK ON (LOAD_LOCATION) ( (SK_COLUMN) ) with (DATA_COMPRESSION = ROW)'
-      set @mergeSQL = replace(@mergeSQL, '(LOAD_LOCATION)',@LoadTableName);
-      set @mergeSQL = replace(@mergeSQL, '(SK_COLUMN)',@SKColumn);
-
-      if @Debug=1
-      begin
-         select @mergeSQL as MergeSQL
-               ,@LoadTableName as LoadTableName
-               ,@SKColumn as SKColumn
-      end
-      else
-      begin
-         exec (@mergeSQL);
-         exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
-                          ,@MessageText=@mergeSQL, @Status='Created index on load table'
-      end
-
-
-
       set @mergeSQL = '
       begin tran
 

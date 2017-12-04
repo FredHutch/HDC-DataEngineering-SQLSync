@@ -66,8 +66,5 @@ select dbo.GetColumnList(db_name()
     <column name="object_id" />
     <column name="schema_id" />
 </columns>'
-   ,N'<columns>
-   <column name="EncounterID" />
-   <column name="PersonID" />
-   </columns>'
+   ,null'
    ,'a')
