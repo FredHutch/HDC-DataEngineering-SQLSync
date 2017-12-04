@@ -1,4 +1,12 @@
+if exists (select * from dbo.SyncConfig where TargetTable not like 'UnitTest%')
+begin
+   select *
+   into dbo.SyncConfig_backup
+   from dbo.SyncConfig
+end
+
 if object_id('dbo.SyncConfig') is not NULL
+   and object_id('dbo.SyncConfig_backup') is not null
 BEGIN
     exec ('drop table dbo.SyncConfig');
 END
@@ -52,6 +60,74 @@ create table dbo.SyncConfig
                                           or (SurrogateKeyColumn is null and SurrogateTable is null ))
 ,constraint SyncConfigPK primary key clustered (TargetTable,TargetSchema,TargetDatabase)
 )
+go
+
+insert into dbo.SyncConfig
+(   [TargetDatabase]
+   ,[TargetSchema]
+   ,[TargetTable]
+   ,[SourceDatabase]
+   ,[SourceSchema]
+   ,[SourceTable]
+   ,[SourceUpdateDateColumn]
+   ,[IsActive]
+   ,[ProcessMode]
+   ,[PrimaryKeyColumns]
+   ,[TableGroup]
+   ,[SurrogateTable]
+   ,[SurrogateKeyColumn]
+   ,[TargetBeginDateColumn]
+   ,[TargetEndDateColumn]
+   ,[TargetActiveColumn]
+   ,[TargetCreateDateColumn]
+   ,[TargetUpdateDateColumn]
+   ,[IsSourceCleanupAfterRun]
+   ,[ReconcileTable]
+   ,[SourceMaxLoadDate]
+)
+select
+   [TargetDatabase]
+   ,[TargetSchema]
+   ,[TargetTable]
+   ,[SourceDatabase]
+   ,[SourceSchema]
+   ,[SourceTable]
+   ,[SourceUpdateDateColumn]
+   ,[IsActive]
+   ,[ProcessMode]
+   ,[PrimaryKeyColumns]
+   ,[TableGroup]
+   ,[SurrogateTable]
+   ,[SurrogateKeyColumn]
+   ,[TargetBeginDateColumn]
+   ,[TargetEndDateColumn]
+   ,[TargetActiveColumn]
+   ,[TargetCreateDateColumn]
+   ,[TargetUpdateDateColumn]
+   ,[IsSourceCleanupAfterRun]
+   ,[ReconcileTable]
+   ,[SourceMaxLoadDate]
+from dbo.SyncConfig_backup
+go
+
+if exists 
+(
+   select TargetDatabase
+      ,TargetSchema
+      ,TargetTable
+   from dbo.SyncConfig
+   where TargetTable not like 'UnitTest%'
+
+   except
+
+   select TargetDatabase
+      ,TargetSchema
+      ,TargetTable
+   from dbo.SyncConfig_backup
+)
+begin
+   raiserror('WARNING! Not all tables may have been copied back into SyncConfig',16,1)
+end
 go
 
 
