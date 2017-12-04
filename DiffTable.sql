@@ -429,7 +429,7 @@ begin
                ,@SourceLocation as SourceLocation
                ,@TargetLocation as TargetLocation
                ,@SKLocation as SKLocation
-          ,@TargetBeginDateColumn as TargetBeginDateColumn
+               ,@TargetBeginDateColumn as TargetBeginDateColumn
                ,@TargetEndDateColumn as TargetEndDateColumn
                ,@DiffTableName as DiffTableName
                ,@PKColumns as PKColumns
@@ -516,7 +516,8 @@ begin
       else
       begin
          exec (@cleanupSQL)
-         exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
+
+         exec dbo.WriteLog @ProcName='SyncTable',@ObjectName=@TargetLocation
                           ,@Status='Truncated load table', @MessageText=@cleanupSQL
       end
 
@@ -529,7 +530,8 @@ begin
       else
       begin
          exec (@cleanupSQL)
-         exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
+
+         exec dbo.WriteLog @ProcName='SyncTable',@ObjectName=@TargetLocation
                           ,@Status='Truncated diff table', @MessageText=@cleanupSQL
       end
    end try
