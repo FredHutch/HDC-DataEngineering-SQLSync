@@ -14,9 +14,9 @@ Use row compression for ***all*** tables and indexes. The additional CPU cost is
 
 For sync processes, all else being equal, the result was a 0% runtime difference, using only 84% of the original I/O. That will scale more efficiently.
 
-**Source table**
+**Source Table**
 
-The ideal index is a clustered index on the source update-date column. That would allow for a clustered seek rather than a scan. Otherwise a table scan will be performed.
+The ideal index is a clustered index on the source primary key columns. That would allow dramatically reduce the cost of a sort to create the primary key ranker in the 'Load SQL' query.
 
 **Surrogate Key Table**
 
