@@ -20,7 +20,7 @@ create table dbo.SyncConfig
 ,SourceDatabase varchar(128) not null
 ,SourceSchema varchar(128) not null
 ,SourceTable varchar(128) not null
-,SourceUpdateDateColumn varchar(128) not null
+,SourceUpdateDateColumn varchar(128) null
 ,PrimaryKeyColumns xml not null --what is the primary key for this table?
 
 -- categorization columns

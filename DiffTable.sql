@@ -132,13 +132,16 @@ begin
 
 
    -- PART 2: Find the source's max(UpdateDate) if available
-   set @updateSQL = N'select @UpdateDateOUT = max('+@SourceUpdateDateColumn+') from '+@SourceLocation
-   set @ParmDefinition = '@UpdateDateOUT datetime OUTPUT'
+   if @SourceUpdateDateColumn is not null
+   begin
+      set @updateSQL = N'select @UpdateDateOUT = max('+@SourceUpdateDateColumn+') from '+@SourceLocation
+      set @ParmDefinition = '@UpdateDateOUT datetime OUTPUT'
 
-   exec sp_executeSQL 
-       @updateSQL
-      ,@ParmDefinition
-      ,@UpdateDateOUT = @SourceMaxUpdateDate OUTPUT
+      exec sp_executeSQL 
+          @updateSQL
+         ,@ParmDefinition
+         ,@UpdateDateOUT = @SourceMaxUpdateDate OUTPUT
+   end
 
    set @SourceMinUpdateDate = isnull(@SourceMinUpdateDate, '1900-01-01')
    set @SourceMaxUpdateDate = isnull(@SourceMaxUpdateDate, '9999-12-31');
@@ -208,15 +211,24 @@ begin
 
       set @loadSQL = replace(@loadSQL, '(COLUMN_LIST)',@ColumnList)
       set @loadSQL = replace(@loadSQL, '(SOURCE_LOCATION)',@SourceLocation)
-      set @loadSQL = replace(@loadSQL, '(SOURCE_MAX_UPDATEDATE)', convert(varchar(30),@SourceMaxUpdateDate,121))
-      set @loadSQL = replace(@loadSQL, '(SOURCE_MIN_UPDATEDATE)', convert(varchar(30),@SourceMinUpdateDate,121))
-      set @loadSQL = replace(@loadSQL, '(SOURCE_UPDATE_COLUMN)',@SourceUpdateDateColumn)
       set @loadSQL = replace(@loadSQL, '(LOAD_LOCATION)',@LoadTableName)
       set @loadSQL = replace(@loadSQL, '(PK_COLUMNS)',@PKColumns)
       set @loadSQL = replace(@loadSQL, '(PK_COLUMNS_S)',@PKColumnsS)
       set @loadSQL = replace(@loadSQL, '(SK_COLUMN)',@SKColumn)
       set @loadSQL = replace(@loadSQL, '(SK_LOCATION)',@SKLocation)
       set @loadSQL = replace(@loadSQL, '(PK_JOIN)',@PKJoin)
+      if @SourceUpdateDateColumn is null
+      begin
+         set @loadSQL = replace(@loadSQL, '(SOURCE_MAX_UPDATEDATE)', 'Z')
+         set @loadSQL = replace(@loadSQL, '(SOURCE_MIN_UPDATEDATE)', 'A')
+         set @loadSQL = replace(@loadSQL, '(SOURCE_UPDATE_COLUMN)', '''H''')
+      end
+      else
+      begin
+         set @loadSQL = replace(@loadSQL, '(SOURCE_MAX_UPDATEDATE)', convert(varchar(30),@SourceMaxUpdateDate,121))
+         set @loadSQL = replace(@loadSQL, '(SOURCE_MIN_UPDATEDATE)', convert(varchar(30),@SourceMinUpdateDate,121))
+         set @loadSQL = replace(@loadSQL, '(SOURCE_UPDATE_COLUMN)',@SourceUpdateDateColumn)
+      end
 
       if @Debug=1
       begin
@@ -453,14 +465,26 @@ begin
       -- PART 6: Clean up the source if specified
       if @DoCleanup=1
       begin
+         -- note: we can't use truncate because we may be querying from a view
          set @cleanupSQL = N'
          DELETE 
          FROM (SOURCE_LOCATION)
          WHERE (SOURCE_UPDATE_COLUMN) <= ''(SOURCE_MAX_UPDATEDATE)''
          ';
          set @cleanupSQL = replace(@cleanupSQL, '(SOURCE_LOCATION)',@SourceLocation);
-         set @cleanupSQL = replace(@cleanupSQL, '(SOURCE_MAX_UPDATEDATE)',convert(varchar(30),@SourceMaxUpdateDate,121))
-         set @cleanupSQL = replace(@cleanupSQL, '(SOURCE_UPDATE_COLUMN)',@SourceUpdateDateColumn);
+
+         -- change the delete conditionally depending on whether we use a source update-date column
+         if @SourceUpdateDateColumn is null
+         begin
+            set @cleanupSQL = replace(@cleanupSQL, '(SOURCE_MAX_UPDATEDATE)','Z')
+            set @cleanupSQL = replace(@cleanupSQL, '(SOURCE_UPDATE_COLUMN)', '''H''');
+         end
+         else
+         begin
+            set @cleanupSQL = replace(@cleanupSQL, '(SOURCE_MAX_UPDATEDATE)',convert(varchar(30),@SourceMaxUpdateDate,121))
+            set @cleanupSQL = replace(@cleanupSQL, '(SOURCE_UPDATE_COLUMN)',@SourceUpdateDateColumn);
+         end
+         
 
         if @Debug=1
         begin
