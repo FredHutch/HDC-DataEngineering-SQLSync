@@ -19,7 +19,7 @@ No
 
 **Can a source table be loaded if it has no update-date column?**
 
-Not at the moment. This could be added if it's needed.
+Yes. Just leave the SourceUpdateDateColumn column in SyncConfig null for the relevant sync/diff. 
 
 **Can you use a view as the source?**
 
@@ -31,9 +31,7 @@ Sure.
 
 **What types of processing are supported?**
 
-Currently there is support only for Type-1 (non-deleting). 
-
-The groundwork has been laid for type-2 tables but it isn't supported yet. That's the [DiffTable](/DiffTable.sql) stored procedure. 
+Currently there is support for Type-1 (non-deleting) and Type-2 tables. 
 
 **Can a table be sync'd if it doesn't have a primary key?**
 
@@ -42,6 +40,8 @@ Sort of. You don't need a primary key index defined in the source, but you must 
 **What happens if there are duplicates?**
 
 If there are duplicate entries for a single PK and source update-date value, then the sync will fail for that table.
+
+If no source update-column is specified, the sync will fail if there are any duplicates for a single PK.
 
 **What about case sensitivity in data?**
 
