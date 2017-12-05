@@ -52,7 +52,7 @@ create table dbo.SyncConfig
 ,ReconcileTable varchar(128) null --if specified, use this for reconciling the data
 ,SourceMaxLoadDate datetime null -- the max(SourceUpdateDateColumn) for the last successful run
 ,constraint ProcessModeColumnCheck check ((TargetActiveColumn is not null and TargetUpdateDateColumn is not null 
-                                             and SourceUpdateDateColumn is not null and TargetCreateDateColumn is not null) 
+                                             and TargetCreateDateColumn is not null) 
                                       or  (TargetBeginDateColumn is not null and TargetEndDateColumn is not null
                                              and TargetUpdateDateColumn is not null and TargetCreateDateColumn is not null))
 ,constraint SyncConfigProcessModeCheck check (ProcessMode in ('Type-2','Type-1'))

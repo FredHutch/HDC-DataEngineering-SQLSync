@@ -210,9 +210,9 @@ begin
       set @loadSQL = replace(@loadSQL, '(PK_JOIN)',@PKJoin)
       if @SourceUpdateDateColumn is null
       begin
-         set @loadSQL = replace(@loadSQL, '(SOURCE_MAX_UPDATEDATE)', 'Z')
-         set @loadSQL = replace(@loadSQL, '(SOURCE_MIN_UPDATEDATE)', 'A')
-         set @loadSQL = replace(@loadSQL, '(SOURCE_UPDATE_COLUMN)', '''H''')
+         set @loadSQL = replace(@loadSQL, '(SOURCE_MAX_UPDATEDATE)', convert(varchar(30),@SourceMaxUpdateDate,121))
+         set @loadSQL = replace(@loadSQL, '(SOURCE_MIN_UPDATEDATE)', convert(varchar(30),@SourceMinUpdateDate,121))
+         set @loadSQL = replace(@loadSQL, '(SOURCE_UPDATE_COLUMN)','getdate()')
       end
       else
       begin

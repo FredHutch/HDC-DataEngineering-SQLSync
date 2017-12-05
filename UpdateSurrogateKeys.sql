@@ -94,6 +94,11 @@ begin
       if @Debug=1
       begin
          select @insertSQL as InsertSKSQL
+                ,@SKLocation as SKLocation
+                ,@PKColumns as PKColumns
+                ,@PKJoin as PKJoin
+                ,@SKColumn as SKColumn
+                ,@MaxSKValue as MaxSKValue
       end
       else
       begin

@@ -29,7 +29,9 @@ insert into dbo.SyncConfig
 ,[TargetCreateDateColumn]
 ,[TargetUpdateDateColumn]
 ,[SourceUpdateDateColumn]
-,[CleanUpSourceAfterRun])
+,[IsSourceCleanupAfterRun]
+,IsSourceToLoadCopy
+,IsDiff)
 select
   db_name() as TargetDatabase
   ,'dbo' as TargetSchema
@@ -49,7 +51,9 @@ select
   ,'UnitTestCreateDate' as TargetCreateDateColumn
   ,'UnitTestUpdateDate' as TargetUpdateDateColumn
   ,'UnitTestStagingTime' as SourceUpdateDateColumn
-  ,0 as CleanUpSourceAfterRun
+  ,0 as IsSourceCleanupAfterRun
+  ,1 as IsSourceToLoadCopy
+  ,1 as IsDiff
 
 
 insert into dbo.SyncConfig
@@ -70,7 +74,9 @@ insert into dbo.SyncConfig
 ,[TargetCreateDateColumn]
 ,[TargetUpdateDateColumn]
 ,[SourceUpdateDateColumn]
-,[CleanUpSourceAfterRun])
+,[IsSourceCleanupAfterRun]
+,IsSourceToLoadCopy
+,IsDiff)
 select
   db_name() as TargetDatabase
   ,'dbo' as TargetSchema
@@ -91,7 +97,9 @@ select
   ,'UnitTestCreateDate' as TargetCreateDateColumn
   ,'UnitTestUpdateDate' as TargetUpdateDateColumn
   ,'UnitTestStagingTime' as SourceUpdateDateColumn
-  ,0 as CleanUpSourceAfterRun
+  ,0 as IsSourceCleanupAfterRun
+  ,1 as IsSourceToLoadCopy
+  ,1 as IsDiff
 end
 go
 

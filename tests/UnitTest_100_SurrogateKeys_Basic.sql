@@ -27,8 +27,11 @@ from dbo.SyncConfig
 where TargetTable = 'UnitTest_TargetTable1'
 go
 
+declare @DatabaseName varchar(128)
+set @DatabaseName = (select db_name())
+
 exec dbo.UpdateSurrogateKeys
-    @TargetDatabaseName='Scratch'
+    @TargetDatabaseName=@DatabaseName
    ,@TargetTableName='UnitTest_TargetTable1'
    ,@Debug=1
 
@@ -64,7 +67,7 @@ WHERE n between 501 and 1000 ;
 
 
 exec dbo.UpdateSurrogateKeys
-    @TargetDatabaseName='Scratch'
+    @TargetDatabaseName=@DatabaseName
    ,@TargetTableName='UnitTest_TargetTable1'
    ,@Debug=0
 

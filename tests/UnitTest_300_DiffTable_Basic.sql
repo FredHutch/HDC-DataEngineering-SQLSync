@@ -26,6 +26,9 @@ update UnitTest_SourceTable1
 set NvarcharColumn = replace(NvarcharColumn,'TestData','UpdatedTestData')
 go
 
+declare @DatabaseName varchar(128)
+set @DatabaseName = (select db_name())
+
 exec dbo.DiffTable @TargetDatabaseName=@DatabaseName, @TargetTableName='UnitTest_TargetTable2', @Debug=0
 
 
