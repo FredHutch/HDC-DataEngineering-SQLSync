@@ -49,6 +49,10 @@ There are two functions, dbo.GetBeginDate() and dbo.GetEndDate(), that return th
 
 If you want to have custom logic for assigning begin/end dates to a table, you can edit the code in those functions to work however you want. That includes loading from a date/state table, if that will help.
 
+**Change GlobalInformationSchema**
+
+Before you can run any diff or sync processes, you need to update the dbo.GlobalInformationSchema view to include the database(s) you want to use for both source *and* target databases. There are examples in the view code.
+
 
 ### Pick Names for Things
 
