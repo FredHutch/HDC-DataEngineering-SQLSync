@@ -109,8 +109,8 @@ begin
    set @ColumnUpdate = (select dbo.GetUpdateList(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, 's'))
 
    -- Set the begin date and end date values
-   set @BeginDate = (select convert(datetime,convert(varchar(30),getdate(),120)))
-   set @EndDate = dateadd(mi,-1.0,@BeginDate)
+   set @BeginDate = (select dbo.GetBeginDate(@SourceDatabaseName, @SourceSchemaName, @SourceTableName))
+   set @EndDate = (select dbo.GetEndDate(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, @BeginDate))
 
    -- get the concatenation of primary key columns.
    set @PKColumnsConcat =  (

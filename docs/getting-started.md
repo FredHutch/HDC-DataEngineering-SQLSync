@@ -43,6 +43,12 @@ There are 6 steps to set up your first diff.
 
 ### Implement Custom Code
 
+**Begin and End Dates**
+
+There are two functions, dbo.GetBeginDate() and dbo.GetEndDate(), that return the datetime values for begin/end dates for a given table during a diff.
+
+If you want to have custom logic for assigning begin/end dates to a table, you can edit the code in those functions to work however you want. That includes loading from a date/state table, if that will help.
+
 
 ### Pick Names for Things
 
