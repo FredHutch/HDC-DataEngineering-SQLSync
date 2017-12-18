@@ -22,22 +22,24 @@ WHERE TargetTable = 'UnitTest_TargetTable1'
 go
 
 
-select *
-from dbo.SyncConfig
-where TargetTable = 'UnitTest_TargetTable1'
-go
-
 declare @DatabaseName varchar(128)
 set @DatabaseName = (select db_name())
 
+/*
+-- Un-comment this to see the statements that are run
 exec dbo.UpdateSurrogateKeys
     @TargetDatabaseName=@DatabaseName
    ,@TargetTableName='UnitTest_TargetTable1'
    ,@Debug=1
 
 
+
 select *
 from dbo.UnitTest_SurrogateKeys_TargetTable1
+-- should be empty
+*/
+
+
 
 -- add more rows, do it again
 ; WITH Nbrs_3( n ) AS ( SELECT 1 UNION SELECT 0 ),
@@ -62,7 +64,13 @@ SELECT
   ,UnitTestStagingTime = getdate()
 FROM ( SELECT ROW_NUMBER() OVER (ORDER BY n)
 FROM Nbrs ) D ( n )
-WHERE n between 501 and 1000 ; 
+WHERE n between 501 and 1000
+and not exists
+(
+    select *
+    from dbo.UnitTest_SourceTable1
+    WHERE IntColumn between 501 and 1000
+) ; 
 
 
 
@@ -70,7 +78,38 @@ exec dbo.UpdateSurrogateKeys
     @TargetDatabaseName=@DatabaseName
    ,@TargetTableName='UnitTest_TargetTable1'
    ,@Debug=0
+go
 
 
-select *
-from dbo.UnitTest_SurrogateKeys_TargetTable1
+; with sk as
+(
+    select count(distinct PKColumn) as PKCount
+    from dbo.UnitTest_SurrogateKeys_TargetTable1
+), s as 
+(
+    select count(distinct PKColumn) as PKCount
+    from dbo.UnitTest_SourceTable1
+)
+
+select
+    case when isnull(s.PKCount,-1) = isnull(sk.PKCount,-1) then 'Success' else 'Failure' end as Status
+  ,'Make sure all PKs have surrogate keys' as TestDescription
+  ,s.PKCount as SourcePKCount
+  ,sk.PKCount as SurrogateTablePKCount
+from sk
+cross join s
+
+union ALL
+
+select
+    case when count(*)=1 then 'Success' else 'Failure' end as Status
+    ,'Make sure the unit test config has the proper SK configuration' as TestDescription
+    ,null
+    ,null
+from dbo.SyncConfig
+where TargetTable = 'UnitTest_TargetTable1'
+and SurrogateTable = 'UnitTest_SurrogateKeys_TargetTable1'
+and SurrogateKeyColumn = 'UnitTestSurrogateKeyID'
+GO
+
+

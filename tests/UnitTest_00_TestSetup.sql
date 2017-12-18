@@ -104,10 +104,6 @@ end
 go
 
 exec UnitTest_PopulateDDL
-
-select *
-from dbo.SyncConfig
-where TargetTable = 'UnitTest_TargetTable1'
 go
 
 if object_id('dbo.UnitTest_SourceTable1') is not null
@@ -206,7 +202,24 @@ SELECT
 FROM ( SELECT ROW_NUMBER() OVER (ORDER BY n)
 FROM Nbrs ) D ( n )
 WHERE n <= 500 ; 
+go
 
-select *
+
+select case when count(*)=2 then 'Success' else 'Failure' end as Status
+  ,'Make sure both unit test sync configs exist' as TestDescription
+from dbo.SyncConfig
+where TargetTable in ('UnitTest_TargetTable1','UnitTest_TargetTable2')
+
+union all
+
+select case when count(*)=4 then 'Success' else 'Failure' end as Status
+    ,'Make sure 4 unit test tables exist' as TestDescription
+from sys.tables t
+where t.name in ('UnitTest_SourceTable1','UnitTest_SKMap_TargetTable1','UnitTest_TargetTable1','UnitTest_TargetTable2')
+
+union all
+
+select case when count(*)=500 then 'Success' else 'Failure' end as Status
+  ,'Make sure source table has 500 rows' as TestDescription
 from dbo.UnitTest_SourceTable1
 

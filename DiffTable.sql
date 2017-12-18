@@ -362,6 +362,11 @@ begin
 
       -- PART 5: Upsert
       /* LOGIC:
+         if a row exists in the target and the diff
+            then there is a target row that's active (9999-12-31)
+            and 
+         if there is a row in the diff but *not* the source
+            then there is 
          merge
          when matched
             update
@@ -382,7 +387,6 @@ begin
          SELECT *
          FROM (DIFF_LOCATION) as s
          WHERE s.(SK_COLUMN) = t.(SK_COLUMN)
-         AND s.HDCTableSource = ''t''
       )
       
       INSERT INTO (TARGET_LOCATION)
@@ -413,6 +417,7 @@ begin
             SELECT *
             FROM (DIFF_LOCATION) d
             WHERE d.(SK_COLUMN) = s.(SK_COLUMN)
+            AND d.HDCTableSource = ''s''
          )
       ) as s
 
