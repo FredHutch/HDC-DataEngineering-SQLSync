@@ -42,6 +42,7 @@ Order of operations:
       ,@SourceSchemaName varchar(128)
       ,@SourceTableName varchar(128)
       ,@IsSourceCleanupAfterRun bit
+      ,@ProcessMode varchar(8)
 
       ,@TargetCreateDateColumn varchar(128)
       ,@TargetUpdateDateColumn varchar(128)
@@ -51,13 +52,6 @@ Order of operations:
 
       ,@BeginDate datetime
       ,@EndDate datetime
-
-   set @Msg = 'Starting ReconcileTable, parameters:'
-               +' @TargetDatabase=' + isnull(@TargetDatabaseName,'null')
-               +', @TargetSchema=' + isnull(@TargetSchemaName,'null')
-               +', @TargetTable=' + isnull(@TargetTableName,'null')
-               +', @Debug=' + isnull(convert(varchar,@Debug),'null')
-   exec dbo.WriteLog @ProcName='ReconcileTable',@MessageText=@Msg, @Status='Starting'
 
    select
      @TargetLocation = '['+s.TargetDatabase+'].['+s.TargetSchema+'].['+s.TargetTable+']'
@@ -80,12 +74,25 @@ Order of operations:
 
 
    set @PKJoin       = (select dbo.GetPKJoin(@PKColumnsXML, 's','t'))
+   set @ProcessMode = (select case when @TargetBeginDateColumn is null and @TargetActiveColumn is not null
+                                   then 'Type-1'
+                                   when @TargetActiveColumn is null and @TargetBeginDateColumn is not null
+                                   then 'Type-2'
+                                   else 'Unknown' end)
    
    -- Set the begin date and end date values
    set @BeginDate = (select dbo.GetBeginDate(@SourceDatabaseName, @SourceSchemaName, @SourceTableName))
    set @EndDate = (select dbo.GetEndDate(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, @BeginDate))
 
-
+   set @Msg = 'Starting ReconcileTable, parameters:'
+               +' @TargetDatabase=' + isnull(@TargetDatabaseName,'null')
+               +', @TargetSchema=' + isnull(@TargetSchemaName,'null')
+               +', @TargetTable=' + isnull(@TargetTableName,'null')
+               +', @Debug=' + isnull(convert(varchar,@Debug),'null')
+               +', @BeginDate=' + isnull(convert(varchar,@BeginDate),'null')
+               +', @EndDate=' + isnull(convert(varchar,@EndDate),'null')
+               +', @ProcessMode=' + isnull(convert(varchar,@ProcessMode),'null')
+   exec dbo.WriteLog @ProcName='ReconcileTable',@MessageText=@Msg, @Status='Starting'
 
 
    -- PART 2: Create the templates for both type-1 and type-2 reconcile statements
@@ -110,30 +117,12 @@ Order of operations:
       set @type1SQL = replace(@type1SQL, '(TARGET_ACTIVE_COLUMN)',@TargetActiveColumn)
       set @type1SQL = replace(@type1SQL, '(PK_JOIN)',@PKJoin)
 
-      if @Debug=1
-      begin
-        select @type1SQL as Type1SQL
-               ,@TargetLocation as TargetLocation
-               ,@ReconcileTable as ReconcileTable
-               ,@TargetUpdateDateColumn as TargetUpdateDateColumn
-               ,@TargetActiveColumn as TargetActiveColumn
-               ,@PKJoin as PKJoin
-      end
-      else
-      begin
-         exec (@type1SQL);
-
-         set @RowsAffected = isnull(@@ROWCOUNT,0)
-         set @Msg = 'Reconcile type-1 table, '+convert(varchar,@RowsAffected)+' rows'
-         exec dbo.WriteLog @ProcName='ReconcileTable',@MessageText=@type1SQL, @Status=@Msg
-      end
-
 
       -- Type 2.
       set @type2SQL = cast('
       UPDATE t
       SET (TARGET_UPDATE_COLUMN) = getdate()
-         ,(TARGET_ENDDATE_COLUMN) = (END_DATE)
+         ,(TARGET_ENDDATE_COLUMN) = ''(END_DATE)''
       FROM (TARGET_LOCATION) as t
       WHERE t.(TARGET_ENDDATE_COLUMN) = ''9999-12-31''
       AND NOT EXISTS
@@ -151,23 +140,47 @@ Order of operations:
       set @type2SQL = replace(@type2SQL, '(END_DATE)',convert(varchar(30),@EndDate,121))
       set @type2SQL = replace(@type2SQL, '(PK_JOIN)',@PKJoin)
 
-      if @Debug=1
-      begin
-        select @type2SQL as Type2SQL
-               ,@TargetLocation as TargetLocation
-               ,@ReconcileTable as ReconcileTable
-               ,@TargetUpdateDateColumn as TargetUpdateDateColumn
-               ,@TargetEndDateColumn as TargetEndDateColumn
-               ,@EndDate as EndDate
-               ,@PKJoin as PKJoin
-      end
-      else
-      begin
-         exec (@type2SQL);
 
-         set @RowsAffected = isnull(@@ROWCOUNT,0)
-         set @Msg = 'Reconcile type-2 table, '+convert(varchar,@RowsAffected)+' rows'
-         exec dbo.WriteLog @ProcName='ReconcileTable',@MessageText=@type2SQL, @Status=@Msg
+      if @ProcessMode='Type-1'
+      begin
+        if @Debug=1
+        begin
+          select @type1SQL as Type1SQL
+                 ,@TargetLocation as TargetLocation
+                 ,@ReconcileTable as ReconcileTable
+                 ,@TargetUpdateDateColumn as TargetUpdateDateColumn
+                 ,@TargetActiveColumn as TargetActiveColumn
+                 ,@PKJoin as PKJoin
+        end
+        else
+        begin
+           exec (@type1SQL);
+
+           set @RowsAffected = isnull(@@ROWCOUNT,0)
+           set @Msg = 'Reconcile type-1 table, '+convert(varchar,@RowsAffected)+' rows'
+           exec dbo.WriteLog @ProcName='ReconcileTable',@MessageText=@type1SQL, @Status=@Msg
+        end
+      end
+      else if @ProcessMode='Type-2'
+      begin
+        if @Debug=1
+        begin
+          select @type2SQL as Type2SQL
+                 ,@TargetLocation as TargetLocation
+                 ,@ReconcileTable as ReconcileTable
+                 ,@TargetUpdateDateColumn as TargetUpdateDateColumn
+                 ,@TargetEndDateColumn as TargetEndDateColumn
+                 ,@EndDate as EndDate
+                 ,@PKJoin as PKJoin
+        end
+        else
+        begin
+           exec (@type2SQL);
+
+           set @RowsAffected = isnull(@@ROWCOUNT,0)
+           set @Msg = 'Reconcile type-2 table, '+convert(varchar,@RowsAffected)+' rows'
+           exec dbo.WriteLog @ProcName='ReconcileTable',@MessageText=@type2SQL, @Status=@Msg
+        end
       end
 
 

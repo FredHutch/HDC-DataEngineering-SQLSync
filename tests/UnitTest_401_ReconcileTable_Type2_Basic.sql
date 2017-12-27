@@ -4,7 +4,7 @@ go
 /*
 Test methodology:
 
-Sync the table over.
+Diff the table over.
 Make sure the rowcounts are the same
 Copy all rows to the reconcile table, then delete some (hard delete)
 Run ReconcileTable()
@@ -15,18 +15,18 @@ Confirm that the deleted rows are marked as inactive in the source
 /*
 select *
 from dbo.SyncConfig
-where TargetTable = 'UnitTest_TargetTable1'
+where TargetTable = 'UnitTest_TargetTable2'
 go
 */
 
 declare @DatabaseName varchar(128)
 set @DatabaseName = (select db_name())
 
-truncate table dbo.UnitTest_TargetTable1
+truncate table dbo.UnitTest_TargetTable2
 
 
 -- First, load the table
-exec dbo.SyncTable @TargetDatabaseName=@DatabaseName, @TargetTableName='UnitTest_TargetTable1', @Debug=0
+exec dbo.DiffTable @TargetDatabaseName=@DatabaseName, @TargetTableName='UnitTest_TargetTable2', @Debug=0
 go
 
 -- Create reconcile table and copy it over
@@ -52,14 +52,16 @@ set @DatabaseName = (select db_name())
 
 update dbo.SyncConfig
 set ReconcileTable = 'UnitTest_ReconcileTable1'
+where TargetTable = 'UnitTest_TargetTable2'
 
-exec dbo.ReconcileTable @TargetDatabaseName=@DatabaseName, @TargetTableName='UnitTest_TargetTable1', @Debug=0
+
+exec dbo.ReconcileTable @TargetDatabaseName=@DatabaseName, @TargetTableName='UnitTest_TargetTable2', @Debug=0
 go
 
 /*
 select *
 from dbo.SyncConfig
-where TargetTable = 'UnitTest_TargetTable1'
+where TargetTable = 'UnitTest_TargetTable2'
 */
 
 -- Confirm that the deleted rows are marked as inactive in the target
@@ -67,8 +69,8 @@ where TargetTable = 'UnitTest_TargetTable1'
 (
    select 'TargetTable' as TableDesc 
     ,'TotalRowcount' = count(*)
-    ,'ReconcileRowcount' = sum(case when UnitTestIsActive=1 then 1 else 0 end)
-   from dbo.UnitTest_TargetTable1
+    ,'ReconcileRowcount' = sum(case when UnitTestEndDate='9999-12-31' then 1 else 0 end)
+   from dbo.UnitTest_TargetTable2
 ), s as
 (
    select 'SourceTable' as TableDesc 
@@ -89,3 +91,4 @@ select
   ,TargetRowcount = t.TotalRowcount
 from t
 cross join s
+

@@ -52,6 +52,7 @@ set @DatabaseName = (select db_name())
 
 update dbo.SyncConfig
 set ReconcileTable = 'UnitTest_ReconcileTable1'
+where TargetTable = 'UnitTest_TargetTable1'
 
 exec dbo.ReconcileTable @TargetDatabaseName=@DatabaseName, @TargetTableName='UnitTest_TargetTable1', @Debug=0
 go
