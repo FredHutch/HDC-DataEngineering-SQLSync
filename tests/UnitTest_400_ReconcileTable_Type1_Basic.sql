@@ -11,6 +11,7 @@ Run ReconcileTable()
 Confirm that the deleted rows are marked as inactive in the source
 */
 
+
 /*
 select *
 from dbo.SyncConfig
@@ -29,6 +30,12 @@ exec dbo.SyncTable @TargetDatabaseName=@DatabaseName, @TargetTableName='UnitTest
 go
 
 -- Create reconcile table and copy it over
+if OBJECT_ID('dbo.UnitTest_ReconcileTable1') is not null
+BEGIN
+  exec ('drop table dbo.UnitTest_ReconcileTable1')
+end
+go
+
 create table dbo.UnitTest_ReconcileTable1
 (PKColumn varchar(400) not null primary key clustered)
 go
@@ -43,10 +50,11 @@ go
 declare @DatabaseName varchar(128)
 set @DatabaseName = (select db_name())
 
+update dbo.SyncConfig
+set ReconcileTable = 'UnitTest_ReconcileTable1'
+
 exec dbo.ReconcileTable @TargetDatabaseName=@DatabaseName, @TargetTableName='UnitTest_TargetTable1', @Debug=0
 go
-
-
 
 /*
 select *
@@ -54,10 +62,7 @@ from dbo.SyncConfig
 where TargetTable = 'UnitTest_TargetTable1'
 */
 
--- Confirm that the deleted rows are marked as inactive in the source
-
-
-
+-- Confirm that the deleted rows are marked as inactive in the target
 ; with t as
 (
    select 'TargetTable' as TableDesc 
