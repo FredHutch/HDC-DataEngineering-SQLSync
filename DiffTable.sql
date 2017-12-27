@@ -431,7 +431,7 @@ begin
       set @mergeSQL = replace(@mergeSQL, '(TARGET_BEGINDATE_COLUMN)',@TargetBeginDateColumn);
       set @mergeSQL = replace(@mergeSQL, '(TARGET_ENDDATE_COLUMN)',@TargetEndDateColumn);
       set @mergeSQL = replace(@mergeSQL, '(BEGIN_DATE)',@BeginDate);
-      set @mergeSQL = replace(@mergeSQL, '(END_DATE)',@EndDate);
+      set @mergeSQL = replace(@mergeSQL, '(END_DATE)',convert(varchar(30),@EndDate,121));
       set @mergeSQL = replace(@mergeSQL, '(COLUMN_LIST)',@ColumnList);
       set @mergeSQL = replace(@mergeSQL, '(PK_COLUMNS)', @PKColumns );
       set @mergeSQL = replace(@mergeSQL, '(PK_COLUMNS_S)',@PKColumnsS);
