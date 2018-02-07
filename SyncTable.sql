@@ -136,8 +136,11 @@ begin
          ,@UpdateDateOUT = @SourceMaxUpdateDate OUTPUT
    end
 
-   set @SourceMinUpdateDate = isnull(@SourceMinUpdateDate, '1900-01-01')
-   set @SourceMaxUpdateDate = isnull(@SourceMaxUpdateDate, '9999-12-31');
+   -- set the default max date to be the last loaded date if the source merely has 0 rows (as opposed to being a new source = NULL)
+   -- We do this to preserve the last successful load offset; with 0 rows these params don't matter for this run.
+
+   set @SourceMaxUpdateDate = COALESCE(@SourceMaxUpdateDate, @SourceMinUpdateDate, '9999-12-31');
+   set @SourceMinUpdateDate = isnull(@SourceMinUpdateDate, '1900-01-01');
 
    set @Msg = 'SyncTable variables:'
                +' @SourceMinUpdateDate=' + isnull(convert(varchar(30),@SourceMinUpdateDate,121),'null')
@@ -535,4 +538,5 @@ begin
                        ,@Status='ERROR',@MessageText=@Msg
    end catch
 end
-go
+
+GO
