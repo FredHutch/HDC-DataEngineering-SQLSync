@@ -11,10 +11,17 @@ create procedure dbo.UpdateSurrogateKeys
    ,@Debug bit=0
 as
 begin
+
+   set nocount on
+
    declare @insertSQL nvarchar(max)
       ,@getMaxValueSQL nvarchar(max)
       ,@RowsAffected int
       ,@Msg varchar(max)
+      ,@StoredProcName varchar(255)
+   
+   set @StoredProcName = object_name(@@procid)
+
    /*
    Order of operations:
 
@@ -24,44 +31,45 @@ begin
    */
 
    -- PART 1: Assemble parameters
-      declare 
-         @PKColumns varchar(8000)
-        ,@PKColumnsXML xml
-        ,@PKJoin varchar(8000)
-        ,@SKLocation varchar(400)
-        ,@SourceLocation varchar(400)
-        ,@SKColumn varchar(128)
-        ,@MaxSKValue bigint
-        ,@ParmDefinition nvarchar(500)
+   declare 
+      @PKColumns varchar(8000)
+      ,@PKColumnsXML xml
+      ,@PKJoin varchar(8000)
+      ,@SKLocation varchar(400)
+      ,@SourceLocation varchar(400)
+      ,@SKColumn varchar(128)
+      ,@MaxSKValue bigint
+      ,@ParmDefinition nvarchar(500)
 
-   select
-      @SourceLocation = '['+s.SourceDatabase+'].['+s.SourceSchema+'].['+s.SourceTable+']'
-      ,@SKLocation = '['+s.TargetDatabase+'].['+s.TargetSchema+'].['+s.SurrogateTable+']'
-      ,@PKColumnsXML = s.PrimaryKeyColumns
-      ,@SKColumn = s.SurrogateKeyColumn
-   from dbo.SyncConfig s
-   where s.TargetTable = @TargetTableName
-   and s.TargetSchema = @TargetSchemaName
-   and s.TargetDatabase = @TargetDatabaseName
+   begin try
 
-   set @PKColumns = (select dbo.GetColumnList(@TargetDatabaseName, @TargetSchemaName, @TargetTableName, null, @PKColumnsXML, null))
-   set @PKJoin = (select dbo.GetPKJoin(@PKColumnsXML, 's','t'))
+      select
+         @SourceLocation = '['+s.SourceDatabase+'].['+s.SourceSchema+'].['+s.SourceTable+']'
+         ,@SKLocation = '['+s.TargetDatabase+'].['+s.TargetSchema+'].['+s.SurrogateTable+']'
+         ,@PKColumnsXML = s.PrimaryKeyColumns
+         ,@SKColumn = s.SurrogateKeyColumn
+      from dbo.SyncConfig s
+      where s.TargetTable = @TargetTableName
+      and s.TargetSchema = @TargetSchemaName
+      and s.TargetDatabase = @TargetDatabaseName
+
+      set @PKColumns = (select dbo.GetColumnList(@TargetDatabaseName, @TargetSchemaName, @TargetTableName, null, @PKColumnsXML, null))
+      set @PKJoin = (select dbo.GetPKJoin(@PKColumnsXML, 's','t'))
 
 
-   -- PART 2: Get the max SK value in the current table
-   set @getMaxValueSQL = N'select @maxSKOUT = max('+@SKColumn+') from '+@SKLocation
-   set @ParmDefinition = '@maxSKOUT int OUTPUT'
+      -- PART 2: Get the max SK value in the current table
+      set @getMaxValueSQL = N'select @maxSKOUT = max('+@SKColumn+') from '+@SKLocation
+      set @ParmDefinition = '@maxSKOUT int OUTPUT'
 
-   exec sp_executeSQL 
-       @getMaxValueSQL
-      ,@ParmDefinition
-      ,@maxSKOUT = @MaxSKValue OUTPUT
+      exec sp_executeSQL 
+          @getMaxValueSQL
+         ,@ParmDefinition
+         ,@maxSKOUT = @MaxSKValue OUTPUT
 
-   set @MaxSKValue = isnull(@MaxSKValue,0)
+      set @MaxSKValue = isnull(@MaxSKValue,0)
 
 
    -- PART 3: Insert Query
-   begin try
       set @insertSQL = '
       ; with src as 
       (
@@ -104,18 +112,44 @@ begin
       begin
          exec (@insertSQL)
          set @RowsAffected=@@ROWCOUNT
-         exec dbo.WriteLog @ProcName='UpdateSurrogateKeys',@ObjectName=@SourceLocation
+         exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@SKLocation
                   ,@MessageText=@insertSQL, @Status='Updated surrogate key table'
                   ,@RowsAffected=@RowsAffected
       end
    end try
    begin catch
-      set @Msg = 'ERROR! '+error_message() 
-               + ', ErrorNumber='+convert(varchar,@@ERROR)
-               + ', ErrorLine='+convert(varchar,error_line())
-      select @Msg
-      exec dbo.WriteLog @ProcName='UpdateSurrogateKeys',@ObjectName=@SourceLocation
+
+      declare @ErrorNumber int
+      declare @ErrorSeverity int
+      declare @ErrorState int
+      declare @ErrorProcedure varchar(4000)
+      declare @ErrorLine int
+      declare @ErrorMessage varchar(4000)
+
+      select @ErrorNumber = error_number(), 
+             @ErrorMessage = error_message(), 
+             @ErrorSeverity = error_severity(), 
+             @ErrorState = error_state(), 
+             @ErrorProcedure = error_procedure(), 
+             @ErrorLine = error_line(), 
+             @ErrorMessage = error_message()
+
+      set @Msg = 'ERROR! '+ @ErrorMessage 
+               + ', ErrorNumber=' + convert(varchar,@ErrorNumber)
+               + ', ErrorLine=' + convert(varchar,@ErrorLine)
+      
+      exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@SKLocation
                        ,@Status='ERROR',@MessageText=@Msg
+
+      raiserror ('
+         Error Message       : %s
+         Error Number        : %d
+         Error Severity      : %d
+         Error State         : %d
+         Affected Procedure  : %s
+         Affected Line Number: %d', 16, 1, @ErrorMessage, @ErrorNumber, @ErrorSeverity, @ErrorState, @ErrorProcedure, @ErrorLine)
+
+
    end catch
 end
 go

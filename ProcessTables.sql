@@ -5,7 +5,7 @@ end
 go
 
 create procedure ProcessTables
-   @TargetDatabaseName varchar(128)=null
+    @TargetDatabaseName varchar(128)=null
    ,@TargetTableName varchar(128)=null
    ,@SourceDatabaseName varchar(128)=null
    ,@SourceTableName varchar(128)=null
@@ -14,12 +14,20 @@ create procedure ProcessTables
    ,@Debug bit=0
 as
 begin
-   declare @lTargetDatabaseName varchar(128)
+
+   set nocount on
+
+   declare 
+       @lTargetDatabaseName varchar(128)
       ,@lTargetSchemaName varchar(128)
       ,@lTargetTableName varchar(128)
       ,@lProcessMode varchar(32)
       ,@Msg varchar(max)
-
+      ,@StoredProcName varchar(255)
+      ,@CurrentOperation varchar(255)
+      ,@ErrorFlag bit = 0
+      ,@ErrorMessage varchar(max)
+   
 /*
 This sproc iterates over table, syncing, diffing, or reconciling them one at a time
 
@@ -27,8 +35,11 @@ Order of operations:
 - Load the tables to process into a temp table
 - Using a while loop, call either Diff, Sync, or Reconcile
 */
-  
-   set @Msg = 'Starting ProcessTables, filters:'
+
+   set @ErrorMessage = ''
+   set @StoredProcName = object_name(@@procid)
+
+   set @Msg = 'Starting ' + @StoredProcName + ', filters:'
                 +' @TargetDatabase=' + isnull(@TargetDatabaseName,'null')
                 +', @TargetTable=' + isnull(@TargetTableName,'null')
                 +', @SourceDatabase Name=' + isnull(@SourceDatabaseName,'null')
@@ -36,7 +47,7 @@ Order of operations:
                 +', @ProcessMode=' + isnull(@ProcessMode,'null')
                 +', @TableGroup=' + isnull(@TableGroup,'null')
                 +', @Debug=' + isnull(convert(varchar,@Debug),'null')
-   exec dbo.WriteLog @ProcName='ProcessTables',@MessageText=@Msg, @Status='Starting'
+   exec dbo.WriteLog @ProcName=@StoredProcName, @MessageText=@Msg, @Status='Starting'
 
    if object_id('tempdb..#tablesToProcess') is not null
    begin
@@ -62,45 +73,70 @@ Order of operations:
 
    while exists (select * from #tablesToProcess)
    begin
-     select top 1
-        @lTargetDatabaseName = t.TargetDatabase
-       ,@lTargetSchemaName = t.TargetSchema
-       ,@lTargetTableName = t.TargetTable
-       ,@lProcessMode = t.ProcessMode
-     from #tablesToProcess t
+      select top 1
+          @lTargetDatabaseName = t.TargetDatabase
+         ,@lTargetSchemaName = t.TargetSchema
+         ,@lTargetTableName = t.TargetTable
+         ,@lProcessMode = t.ProcessMode
+      from #tablesToProcess t
 
-      if @lProcessMode = 'Type-2'
-      begin
-         set @Msg = 'Starting dbo.DiffTable: Target='
-                  +@lTargetDatabaseName+'.'+@lTargetSchemaName+'.'+@lTargetTableName
-                  +', @Debug=' + isnull(convert(varchar,@Debug),'null')
-         exec dbo.WriteLog @ProcName='ProcessTables',@MessageText=@Msg, @Status='Calling DiffTable'
+      begin try
 
-         exec dbo.DiffTable @TargetDatabaseName=@lTargetDatabaseName, @TargetSchemaName=@lTargetSchemaName, @TargetTableName = @lTargetTableName, @Debug = @Debug
-      end
-      if @lProcessMode = 'Type-1'
-      begin
-         set @Msg = 'Starting dbo.SyncTable: Target='
-                  +@lTargetDatabaseName+'.'+@lTargetSchemaName+'.'+@lTargetTableName
-                  +', @Debug=' + isnull(convert(varchar,@Debug),'null')
-         exec dbo.WriteLog @ProcName='ProcessTables',@MessageText=@Msg,@Status='Calling SyncTable'
+         if @lProcessMode = 'Type-2'
+         begin
+            set @CurrentOperation = 'DiffTable: Target='+@lTargetDatabaseName+'.'+@lTargetSchemaName+'.'+@lTargetTableName
+            set @Msg = 'Starting ' + @CurrentOperation
+                     +', @Debug=' + isnull(convert(varchar,@Debug),'null')
+            exec dbo.WriteLog @ProcName=@StoredProcName, @MessageText=@Msg, @Status='Calling DiffTable'
 
-         exec dbo.SyncTable @TargetDatabaseName=@lTargetDatabaseName, @TargetSchemaName=@lTargetSchemaName, @TargetTableName = @lTargetTableName, @Debug = @Debug
-      end
-      if @ProcessMode = 'Reconcile'
-      begin
-         set @Msg = 'Starting dbo.ReconcileTable: Target='
-                  +@lTargetDatabaseName+'.'+@lTargetSchemaName+'.'+@lTargetTableName
-                  +', @Debug=' + isnull(convert(varchar,@Debug),'null')
-         exec dbo.WriteLog @ProcName='ProcessTables',@MessageText=@Msg,@Status='Calling ReconcileTable'
+            exec dbo.DiffTable @TargetDatabaseName=@lTargetDatabaseName, @TargetSchemaName=@lTargetSchemaName, @TargetTableName = @lTargetTableName, @Debug = @Debug
+         end
+         if @lProcessMode = 'Type-1'
+         begin
+            set @CurrentOperation = 'SyncTable: Target='+@lTargetDatabaseName+'.'+@lTargetSchemaName+'.'+@lTargetTableName
+            set @Msg = 'Starting ' + @CurrentOperation
+                     +', @Debug=' + isnull(convert(varchar,@Debug),'null')
+            exec dbo.WriteLog @ProcName=@StoredProcName, @MessageText=@Msg,@Status='Calling SyncTable'
 
-         exec dbo.ReconcileTable @TargetDatabaseName=@lTargetDatabaseName, @TargetSchemaName=@lTargetSchemaName, @TargetTableName = @lTargetTableName, @Debug = @Debug
-      end
+            exec dbo.SyncTable @TargetDatabaseName=@lTargetDatabaseName, @TargetSchemaName=@lTargetSchemaName, @TargetTableName = @lTargetTableName, @Debug = @Debug
+         end
+         if @ProcessMode = 'Reconcile'
+         begin
+            set @CurrentOperation = 'ReconcileTable: Target='+@lTargetDatabaseName+'.'+@lTargetSchemaName+'.'+@lTargetTableName
+            set @Msg = 'Starting ' + @CurrentOperation
+                     +', @Debug=' + isnull(convert(varchar,@Debug),'null')
+            exec dbo.WriteLog @ProcName=@StoredProcName, @MessageText=@Msg,@Status='Calling ReconcileTable'
 
-     delete from #tablesToProcess
-     where TargetDatabase = @lTargetDatabaseName
-       and TargetSchema = @lTargetSchemaName
-       and TargetTable = @lTargetTableName
+            exec dbo.ReconcileTable @TargetDatabaseName=@lTargetDatabaseName, @TargetSchemaName=@lTargetSchemaName, @TargetTableName = @lTargetTableName, @Debug = @Debug
+         end
+      
+      end try
+
+      begin catch
+
+         select @ErrorMessage = @ErrorMessage + cast(getdate() as varchar) + CHAR(13) + CHAR(10)
+              + error_message() + CHAR(13) + CHAR(10) + CHAR(13) + CHAR(10)
+
+         set @Msg = 'ERROR in '+ @CurrentOperation + '.  Review previous log entries for details.'
+
+         exec dbo.WriteLog @ProcName=@StoredProcName, @Status='ERROR'
+                          ,@MessageText=@Msg
+
+         set @ErrorFlag = 1
+
+      end catch
+
+      delete from #tablesToProcess
+      where TargetDatabase = @lTargetDatabaseName
+         and TargetSchema = @lTargetSchemaName
+         and TargetTable = @lTargetTableName
+
    end
+
+   exec dbo.WriteLog @ProcName=@StoredProcName, @Status='Finished'
+
+   if @ErrorFlag = 1
+      raiserror (@ErrorMessage, 16, 1)
+
 end
 go

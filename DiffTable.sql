@@ -11,6 +11,9 @@ create procedure dbo.DiffTable
    ,@Debug bit=0
 as
 begin
+
+   set nocount on
+
    /*
    Order of operations:
 
@@ -67,109 +70,112 @@ begin
       ,@SourceMaxUpdateDate datetime
       ,@BeginDate datetime
       ,@EndDate datetime
+      ,@StoredProcName varchar(255)
 
-   set @Msg = 'Starting DiffTable, parameters:'
-               +' @TargetDatabase=' + isnull(@TargetDatabaseName,'null')
-               +', @TargetSchema=' + isnull(@TargetSchemaName,'null')
-               +', @TargetTable=' + isnull(@TargetTableName,'null')
-               +', @Debug=' + isnull(convert(varchar,@Debug),'null')
-   set @TargetLocation = '['+@TargetDatabaseName+'].['+@TargetSchemaName+'].['+@TargetTableName+']'
-   exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
-                    ,@MessageText=@Msg, @Status='Starting'
+   begin try
+   
+      set @StoredProcName = object_name(@@procid)
+      set @Msg = 'Starting ' + @StoredProcName + ', parameters:'
+                  +' @TargetDatabase=' + isnull(@TargetDatabaseName,'null')
+                  +', @TargetSchema=' + isnull(@TargetSchemaName,'null')
+                  +', @TargetTable=' + isnull(@TargetTableName,'null')
+                  +', @Debug=' + isnull(convert(varchar,@Debug),'null')
+      set @TargetLocation = '['+@TargetDatabaseName+'].['+@TargetSchemaName+'].['+@TargetTableName+']'
+      exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
+                       ,@MessageText=@Msg, @Status='Starting'
 
-   select
-       @TargetLocation = '['+s.TargetDatabase+'].['+s.TargetSchema+'].['+s.TargetTable+']'
-      ,@SourceLocation = '['+s.SourceDatabase+'].['+s.SourceSchema+'].['+s.SourceTable+']'
-      ,@LoadTableName = s.TargetSchema+'.HdcLoad_'+s.TargetTable
-      ,@DiffTableName = s.TargetSchema+'.HdcDiff_'+s.TargetTable
-      ,@SKLocation = '['+s.TargetDatabase+'].['+s.TargetSchema+'].['+s.SurrogateTable+']'
-      ,@SourceDatabaseName = s.SourceDatabase
-      ,@SourceSchemaName = s.SourceSchema
-      ,@SourceTableName = s.SourceTable
-      ,@TargetBeginDateColumn = s.TargetBeginDateColumn
-      ,@TargetEndDateColumn = s.TargetEndDateColumn
-      ,@TargetCreateDateColumn = s.TargetCreateDateColumn
-      ,@TargetUpdateDateColumn = s.TargetUpdateDateColumn
-      ,@SourceUpdateDateColumn = s.SourceUpdateDateColumn
-      ,@SKColumn = s.SurrogateKeyColumn
-      ,@PKColumnsXML = s.PrimaryKeyColumns
-      ,@SourceMinUpdateDate = s.SourceMaxLoadDate
-      ,@DoCleanup = s.IsSourceCleanupAfterRun
-   from dbo.SyncConfig s
-   where s.TargetTable = @TargetTableName
-   and s.TargetSchema = @TargetSchemaName
-   and s.TargetDatabase = @TargetDatabaseName
-
-
-   set @PKColumns    = (select dbo.GetColumnList(@TargetDatabaseName, @TargetSchemaName, @TargetTableName, null, @PKColumnsXML, null))
-   set @PKColumnsS   = (select dbo.GetColumnList(@TargetDatabaseName, @TargetSchemaName, @TargetTableName, null, @PKColumnsXML, 's'))
-   set @ColumnList   = (select dbo.GetColumnList(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, @PKColumnsXML, null, null))
-   set @ColumnListS  = (select dbo.GetColumnList(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, @PKColumnsXML, null, 's'))
-   set @PKJoin       = (select dbo.GetPKJoin(@PKColumnsXML, 's','t'))
-   set @ColumnUpdate = (select dbo.GetUpdateList(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, 's'))
-
-   -- Set the begin date and end date values
-   set @BeginDate = (select dbo.GetBeginDate(@SourceDatabaseName, @SourceSchemaName, @SourceTableName))
-   set @EndDate = (select dbo.GetEndDate(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, @BeginDate))
-
-   -- get the concatenation of primary key columns.
-   set @PKColumnsConcat =  (
-     SELECT 'cast(s.'+s.COLUMN_NAME+' as varchar)+''|''+'
-     FROM dbo.GlobalInformationSchema s
-     WHERE s.TABLE_CATALOG = @SourceDatabaseName
-     AND s.TABLE_SCHEMA = @SourceSchemaName
-     AND s.TABLE_NAME = @SourceTableName
-     AND EXISTS
-     (
-       SELECT 1
-       FROM @PKColumnsXML.nodes('columns/column') p(i)
-       WHERE p.i.value('@name','varchar(128)') = s.COLUMN_NAME
-     )
-     FOR XML PATH('')
-   )
-   set @PKColumnsConcat = SUBSTRING(@PKColumnsConcat,1,len(@PKColumnsConcat)-5)
+      select
+          @TargetLocation = '['+s.TargetDatabase+'].['+s.TargetSchema+'].['+s.TargetTable+']'
+         ,@SourceLocation = '['+s.SourceDatabase+'].['+s.SourceSchema+'].['+s.SourceTable+']'
+         ,@LoadTableName = s.TargetSchema+'.HdcLoad_'+s.TargetTable
+         ,@DiffTableName = s.TargetSchema+'.HdcDiff_'+s.TargetTable
+         ,@SKLocation = '['+s.TargetDatabase+'].['+s.TargetSchema+'].['+s.SurrogateTable+']'
+         ,@SourceDatabaseName = s.SourceDatabase
+         ,@SourceSchemaName = s.SourceSchema
+         ,@SourceTableName = s.SourceTable
+         ,@TargetBeginDateColumn = s.TargetBeginDateColumn
+         ,@TargetEndDateColumn = s.TargetEndDateColumn
+         ,@TargetCreateDateColumn = s.TargetCreateDateColumn
+         ,@TargetUpdateDateColumn = s.TargetUpdateDateColumn
+         ,@SourceUpdateDateColumn = s.SourceUpdateDateColumn
+         ,@SKColumn = s.SurrogateKeyColumn
+         ,@PKColumnsXML = s.PrimaryKeyColumns
+         ,@SourceMinUpdateDate = s.SourceMaxLoadDate
+         ,@DoCleanup = s.IsSourceCleanupAfterRun
+      from dbo.SyncConfig s
+      where s.TargetTable = @TargetTableName
+      and s.TargetSchema = @TargetSchemaName
+      and s.TargetDatabase = @TargetDatabaseName
 
 
+      set @PKColumns    = (select dbo.GetColumnList(@TargetDatabaseName, @TargetSchemaName, @TargetTableName, null, @PKColumnsXML, null))
+      set @PKColumnsS   = (select dbo.GetColumnList(@TargetDatabaseName, @TargetSchemaName, @TargetTableName, null, @PKColumnsXML, 's'))
+      set @ColumnList   = (select dbo.GetColumnList(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, @PKColumnsXML, null, null))
+      set @ColumnListS  = (select dbo.GetColumnList(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, @PKColumnsXML, null, 's'))
+      set @PKJoin       = (select dbo.GetPKJoin(@PKColumnsXML, 's','t'))
+      set @ColumnUpdate = (select dbo.GetUpdateList(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, 's'))
 
-   -- PART 2: Find the source's max(UpdateDate) if available
-   if @SourceUpdateDateColumn is not null
-   begin
-      set @updateSQL = N'select @UpdateDateOUT = max('+@SourceUpdateDateColumn+') from '+@SourceLocation
-      set @ParmDefinition = '@UpdateDateOUT datetime OUTPUT'
+      -- Set the begin date and end date values
+      set @BeginDate = (select dbo.GetBeginDate(@SourceDatabaseName, @SourceSchemaName, @SourceTableName))
+      set @EndDate = (select dbo.GetEndDate(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, @BeginDate))
 
-      exec sp_executeSQL 
-          @updateSQL
-         ,@ParmDefinition
-         ,@UpdateDateOUT = @SourceMaxUpdateDate OUTPUT
-   end
-
-   set @SourceMinUpdateDate = isnull(@SourceMinUpdateDate, '1900-01-01')
-   set @SourceMaxUpdateDate = isnull(@SourceMaxUpdateDate, '9999-12-31');
-
-   set @Msg = 'DiffTable variables:'
-               +' @BeginDate=' + isnull(convert(varchar(30),@BeginDate,121),'null')
-               +', @EndDate=' + isnull(convert(varchar(30),@EndDate,121),'null')
-               +', @SourceMinUpdateDate=' + isnull(convert(varchar(30),@SourceMinUpdateDate,121),'null')
-               +', @SourceMaxUpdateDate=' + isnull(convert(varchar(30),@SourceMaxUpdateDate,121),'null')
-   exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
-                    ,@MessageText=@Msg, @Status='Assigned variables'
+      -- get the concatenation of primary key columns.
+      set @PKColumnsConcat =  (
+        SELECT 'cast(s.'+s.COLUMN_NAME+' as varchar)+''|''+'
+        FROM dbo.GlobalInformationSchema s
+        WHERE s.TABLE_CATALOG = @SourceDatabaseName
+        AND s.TABLE_SCHEMA = @SourceSchemaName
+        AND s.TABLE_NAME = @SourceTableName
+        AND EXISTS
+        (
+          SELECT 1
+          FROM @PKColumnsXML.nodes('columns/column') p(i)
+          WHERE p.i.value('@name','varchar(128)') = s.COLUMN_NAME
+        )
+        FOR XML PATH('')
+      )
+      set @PKColumnsConcat = SUBSTRING(@PKColumnsConcat,1,len(@PKColumnsConcat)-5)
 
 
-   -- PART 3: Assign surrogate keys to any rows that don't have them
-   exec dbo.UpdateSurrogateKeys
-      @TargetDatabaseName=@TargetDatabaseName
-      ,@TargetSchemaName=@TargetSchemaName
-      ,@TargetTableName=@TargetTableName
-      ,@Debug=@Debug;
 
-   exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
-                    ,@Status='Called UpdateSurrogateKeys'
+      -- PART 2: Find the source's max(UpdateDate) if available
+      if @SourceUpdateDateColumn is not null
+      begin
+         set @updateSQL = N'select @UpdateDateOUT = max('+@SourceUpdateDateColumn+') from '+@SourceLocation
+         set @ParmDefinition = '@UpdateDateOUT datetime OUTPUT'
+
+         exec sp_executeSQL 
+             @updateSQL
+            ,@ParmDefinition
+            ,@UpdateDateOUT = @SourceMaxUpdateDate OUTPUT
+      end
+
+      set @SourceMinUpdateDate = isnull(@SourceMinUpdateDate, '1900-01-01')
+      set @SourceMaxUpdateDate = isnull(@SourceMaxUpdateDate, '9999-12-31');
+
+      set @Msg = @StoredProcName + ' variables:'
+                  +' @BeginDate=' + isnull(convert(varchar(30),@BeginDate,121),'null')
+                  +', @EndDate=' + isnull(convert(varchar(30),@EndDate,121),'null')
+                  +', @SourceMinUpdateDate=' + isnull(convert(varchar(30),@SourceMinUpdateDate,121),'null')
+                  +', @SourceMaxUpdateDate=' + isnull(convert(varchar(30),@SourceMaxUpdateDate,121),'null')
+      exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
+                       ,@MessageText=@Msg, @Status='Assigned variables'
+
+
+      -- PART 3: Assign surrogate keys to any rows that don't have them
+      exec dbo.UpdateSurrogateKeys
+         @TargetDatabaseName=@TargetDatabaseName
+         ,@TargetSchemaName=@TargetSchemaName
+         ,@TargetTableName=@TargetTableName
+         ,@Debug=@Debug;
+
+      exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
+                       ,@Status='Called UpdateSurrogateKeys'
 
 
 
    -- PART 4: Copy the source data into a load table, including SK
    -- Drop the load table first if it already exists
-   begin try
       if object_id(@LoadTableName) is not null
       begin
          set @loadSQL = 'drop table '+@LoadTableName
@@ -181,7 +187,7 @@ begin
          else 
          begin
             exec (@loadSQL)
-            exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
+            exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                              ,@MessageText=@loadSQL, @Status='Dropped load table'
          end
       end
@@ -239,7 +245,7 @@ begin
          exec (@loadSQL);
 
          set @RowsAffected = isnull(@@ROWCOUNT,0)
-         exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
+         exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                           ,@MessageText=@loadSQL, @Status='Populated load table'
                           ,@RowsAffected=@RowsAffected
       end
@@ -258,7 +264,7 @@ begin
       else
       begin
          exec (@loadSQL);
-         exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
+         exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                           ,@MessageText=@loadSQL, @Status='Created index on load table'
       end
 
@@ -291,7 +297,7 @@ begin
          else 
          begin
             exec (@diffSQL)
-            exec dbo.WriteLog @ProcName='SyncTable',@ObjectName=@TargetLocation
+            exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                              ,@MessageText=@diffSQL, @Status='Dropped diff table'
          end
       end
@@ -354,7 +360,7 @@ begin
          exec (@diffSQL);
 
          set @RowsAffected = isnull(@@ROWCOUNT,0)
-         exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
+         exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                           ,@MessageText=@diffSQL, @Status='Populated diff table'
                           ,@RowsAffected=@RowsAffected
       end
@@ -431,7 +437,7 @@ begin
       set @mergeSQL = replace(@mergeSQL, '(TARGET_BEGINDATE_COLUMN)',@TargetBeginDateColumn);
       set @mergeSQL = replace(@mergeSQL, '(TARGET_ENDDATE_COLUMN)',@TargetEndDateColumn);
       set @mergeSQL = replace(@mergeSQL, '(BEGIN_DATE)',@BeginDate);
-      set @mergeSQL = replace(@mergeSQL, '(END_DATE)',convert(varchar(30),@EndDate,121));
+      set @mergeSQL = replace(@mergeSQL, '(END_DATE)',@EndDate);
       set @mergeSQL = replace(@mergeSQL, '(COLUMN_LIST)',@ColumnList);
       set @mergeSQL = replace(@mergeSQL, '(PK_COLUMNS)', @PKColumns );
       set @mergeSQL = replace(@mergeSQL, '(PK_COLUMNS_S)',@PKColumnsS);
@@ -462,7 +468,7 @@ begin
          exec (@mergeSQL);
 
          set @RowsAffected = isnull(@@ROWCOUNT,0)
-         exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
+         exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                           ,@MessageText=@mergeSQL, @Status=@Msg
                           ,@RowsAffected=@RowsAffected
       end
@@ -503,14 +509,14 @@ begin
             exec (@cleanupSQL)
 
             set @RowsAffected = isnull(@@ROWCOUNT,0)
-            exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
+            exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                              ,@MessageText=@cleanupSQL, @Status='Cleaned up source table'
                              ,@RowsAffected=@RowsAffected
         end
       end
       else
       begin
-          exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
+          exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                            ,@Status='Skipped cleanup because IsSourceCleanupAfterRun=0'
       end
 
@@ -531,7 +537,7 @@ begin
          exec (@cleanupSQL)
 
          set @Msg = 'Updated source max load date to '+convert(varchar(30),@SourceMaxUpdateDate,121)
-         exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
+         exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                           ,@Status=@Msg
       end
 
@@ -546,7 +552,7 @@ begin
       begin
          exec (@cleanupSQL)
 
-         exec dbo.WriteLog @ProcName='SyncTable',@ObjectName=@TargetLocation
+         exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                           ,@Status='Truncated load table', @MessageText=@cleanupSQL
       end
 
@@ -560,21 +566,45 @@ begin
       begin
          exec (@cleanupSQL)
 
-         exec dbo.WriteLog @ProcName='SyncTable',@ObjectName=@TargetLocation
+         exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                           ,@Status='Truncated diff table', @MessageText=@cleanupSQL
       end
    end try
    begin catch
-      set @Msg = 'ERROR! '+error_message() 
-               + ', ErrorNumber='+convert(varchar,@@ERROR)
-               + ', ErrorLine='+convert(varchar,error_line())
-      select @Msg
+
+      declare @ErrorNumber int
+      declare @ErrorSeverity int
+      declare @ErrorState int
+      declare @ErrorProcedure varchar(4000)
+      declare @ErrorLine int
+      declare @ErrorMessage varchar(4000)
+
+      select @ErrorNumber = error_number(), 
+             @ErrorMessage = error_message(), 
+             @ErrorSeverity = error_severity(), 
+             @ErrorState = error_state(), 
+             @ErrorProcedure = error_procedure(), 
+             @ErrorLine = error_line(), 
+             @ErrorMessage = error_message()
+
+      set @Msg = 'ERROR! '+ @ErrorMessage 
+               + ', ErrorNumber=' + convert(varchar,@ErrorNumber)
+               + ', ErrorLine=' + convert(varchar,@ErrorLine)
 
       if @@trancount > 0
          rollback tran
 
-      exec dbo.WriteLog @ProcName='DiffTable',@ObjectName=@TargetLocation
+      exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                        ,@Status='ERROR',@MessageText=@Msg
+
+      raiserror ('
+         Error Message       : %s
+         Error Number        : %d
+         Error Severity      : %d
+         Error State         : %d
+         Affected Procedure  : %s
+         Affected Line Number: %d', 16, 1, @ErrorMessage, @ErrorNumber, @ErrorSeverity, @ErrorState, @ErrorProcedure, @ErrorLine)
+
    end catch
 end
 go
