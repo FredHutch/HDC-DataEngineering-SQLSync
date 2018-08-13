@@ -12,6 +12,9 @@ create procedure dbo.ReconcileTable
    ,@Debug bit=0
 as
 begin
+
+   set nocount on
+
 /*
 Order of operations:
 
@@ -52,51 +55,55 @@ Order of operations:
 
       ,@BeginDate datetime
       ,@EndDate datetime
+      ,@StoredProcName varchar(255)
 
-   select
-     @TargetLocation = '['+s.TargetDatabase+'].['+s.TargetSchema+'].['+s.TargetTable+']'
-     ,@SourceLocation = '['+s.SourceDatabase+'].['+s.SourceSchema+'].['+s.SourceTable+']'
-     ,@SourceDatabaseName = s.SourceDatabase
-     ,@SourceSchemaName = s.SourceSchema
-     ,@SourceTableName = s.SourceTable
-     ,@TargetCreateDateColumn = s.TargetCreateDateColumn
-     ,@TargetUpdateDateColumn = s.TargetUpdateDateColumn
-     ,@TargetBeginDateColumn = s.TargetBeginDateColumn
-     ,@TargetEndDateColumn = s.TargetEndDateColumn
-     ,@TargetActiveColumn  = s.TargetActiveColumn
-     ,@ReconcileTable = s.ReconcileTable
-     ,@PKColumnsXML = s.PrimaryKeyColumns
-     ,@IsSourceCleanupAfterRun = s.IsSourceCleanupAfterRun
-   from dbo.SyncConfig s
-   where s.TargetTable = @TargetTableName
-   and s.TargetSchema = @TargetSchemaName
-   and s.TargetDatabase = @TargetDatabaseName
+   begin try
+
+      set @StoredProcName = object_name(@@procid)
+
+      select
+        @TargetLocation = '['+s.TargetDatabase+'].['+s.TargetSchema+'].['+s.TargetTable+']'
+        ,@SourceLocation = '['+s.SourceDatabase+'].['+s.SourceSchema+'].['+s.SourceTable+']'
+        ,@SourceDatabaseName = s.SourceDatabase
+        ,@SourceSchemaName = s.SourceSchema
+        ,@SourceTableName = s.SourceTable
+        ,@TargetCreateDateColumn = s.TargetCreateDateColumn
+        ,@TargetUpdateDateColumn = s.TargetUpdateDateColumn
+        ,@TargetBeginDateColumn = s.TargetBeginDateColumn
+        ,@TargetEndDateColumn = s.TargetEndDateColumn
+        ,@TargetActiveColumn  = s.TargetActiveColumn
+        ,@ReconcileTable = s.ReconcileTable
+        ,@PKColumnsXML = s.PrimaryKeyColumns
+        ,@IsSourceCleanupAfterRun = s.IsSourceCleanupAfterRun
+      from dbo.SyncConfig s
+      where s.TargetTable = @TargetTableName
+      and s.TargetSchema = @TargetSchemaName
+      and s.TargetDatabase = @TargetDatabaseName
 
 
-   set @PKJoin       = (select dbo.GetPKJoin(@PKColumnsXML, 's','t'))
-   set @ProcessMode = (select case when @TargetBeginDateColumn is null and @TargetActiveColumn is not null
-                                   then 'Type-1'
-                                   when @TargetActiveColumn is null and @TargetBeginDateColumn is not null
-                                   then 'Type-2'
-                                   else 'Unknown' end)
+      set @PKJoin       = (select dbo.GetPKJoin(@PKColumnsXML, 's','t'))
+      set @ProcessMode = (select case when @TargetBeginDateColumn is null and @TargetActiveColumn is not null
+                                      then 'Type-1'
+                                      when @TargetActiveColumn is null and @TargetBeginDateColumn is not null
+                                      then 'Type-2'
+                                      else 'Unknown' end)
    
-   -- Set the begin date and end date values
-   set @BeginDate = (select dbo.GetBeginDate(@SourceDatabaseName, @SourceSchemaName, @SourceTableName))
-   set @EndDate = (select dbo.GetEndDate(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, @BeginDate))
+      -- Set the begin date and end date values
+      set @BeginDate = (select dbo.GetBeginDate(@SourceDatabaseName, @SourceSchemaName, @SourceTableName))
+      set @EndDate = (select dbo.GetEndDate(@SourceDatabaseName, @SourceSchemaName, @SourceTableName, @BeginDate))
 
-   set @Msg = 'Starting ReconcileTable, parameters:'
-               +' @TargetDatabase=' + isnull(@TargetDatabaseName,'null')
-               +', @TargetSchema=' + isnull(@TargetSchemaName,'null')
-               +', @TargetTable=' + isnull(@TargetTableName,'null')
-               +', @Debug=' + isnull(convert(varchar,@Debug),'null')
-               +', @BeginDate=' + isnull(convert(varchar,@BeginDate),'null')
-               +', @EndDate=' + isnull(convert(varchar,@EndDate),'null')
-               +', @ProcessMode=' + isnull(convert(varchar,@ProcessMode),'null')
-   exec dbo.WriteLog @ProcName='ReconcileTable',@MessageText=@Msg, @Status='Starting'
+      set @Msg = 'Starting ' + @StoredProcName + ', parameters:'
+                  +' @TargetDatabase=' + isnull(@TargetDatabaseName,'null')
+                  +', @TargetSchema=' + isnull(@TargetSchemaName,'null')
+                  +', @TargetTable=' + isnull(@TargetTableName,'null')
+                  +', @Debug=' + isnull(convert(varchar,@Debug),'null')
+                  +', @BeginDate=' + isnull(convert(varchar,@BeginDate),'null')
+                  +', @EndDate=' + isnull(convert(varchar,@EndDate),'null')
+                  +', @ProcessMode=' + isnull(convert(varchar,@ProcessMode),'null')
+      exec dbo.WriteLog @ProcName=@StoredProcName, @MessageText=@Msg, @Status='Starting'
 
 
    -- PART 2: Create the templates for both type-1 and type-2 reconcile statements
-   begin try
       -- Type 1. 
       set @type1SQL = cast('
       UPDATE t
@@ -158,7 +165,7 @@ Order of operations:
 
            set @RowsAffected = isnull(@@ROWCOUNT,0)
            set @Msg = 'Reconcile type-1 table, '+convert(varchar,@RowsAffected)+' rows'
-           exec dbo.WriteLog @ProcName='ReconcileTable',@MessageText=@type1SQL, @Status=@Msg
+           exec dbo.WriteLog @ProcName=@StoredProcName, @MessageText=@type1SQL, @Status=@Msg
         end
       end
       else if @ProcessMode='Type-2'
@@ -179,7 +186,7 @@ Order of operations:
 
            set @RowsAffected = isnull(@@ROWCOUNT,0)
            set @Msg = 'Reconcile type-2 table, '+convert(varchar,@RowsAffected)+' rows'
-           exec dbo.WriteLog @ProcName='ReconcileTable',@MessageText=@type2SQL, @Status=@Msg
+           exec dbo.WriteLog @ProcName=@StoredProcName, @MessageText=@type2SQL, @Status=@Msg
         end
       end
 
@@ -203,12 +210,41 @@ Order of operations:
 
             set @RowsAffected = isnull(@@ROWCOUNT,0)
             set @Msg = 'Clean up reconcile table after run, '+convert(varchar,@RowsAffected)+' rows'
-            exec dbo.WriteLog @ProcName='ReconcileTable',@MessageText=@type2SQL, @Status=@Msg
+            exec dbo.WriteLog @ProcName=@StoredProcName, @MessageText=@type2SQL, @Status=@Msg
          end
       end
    end try
    begin catch
-      select @@ERROR
+      declare @ErrorNumber int
+      declare @ErrorSeverity int
+      declare @ErrorState int
+      declare @ErrorProcedure varchar(4000)
+      declare @ErrorLine int
+      declare @ErrorMessage varchar(4000)
+
+      select @ErrorNumber = error_number(), 
+             @ErrorMessage = error_message(), 
+             @ErrorSeverity = error_severity(), 
+             @ErrorState = error_state(), 
+             @ErrorProcedure = error_procedure(), 
+             @ErrorLine = error_line(), 
+             @ErrorMessage = error_message()
+
+      set @Msg = 'ERROR! '+ @ErrorMessage 
+               + ', ErrorNumber=' + convert(varchar,@ErrorNumber)
+               + ', ErrorLine=' + convert(varchar,@ErrorLine)
+
+      exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
+                       ,@Status='ERROR',@MessageText=@Msg
+
+      raiserror ('
+         Error Message       : %s
+         Error Number        : %d
+         Error Severity      : %d
+         Error State         : %d
+         Affected Procedure  : %s
+         Affected Line Number: %d', 16, 1, @ErrorMessage, @ErrorNumber, @ErrorSeverity, @ErrorState, @ErrorProcedure, @ErrorLine)
+
    end catch
 end
 go
