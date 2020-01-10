@@ -40,12 +40,12 @@ Order of operations:
    set @StoredProcName = object_name(@@procid)
 
    set @Msg = 'Starting ' + @StoredProcName + ', filters:'
-                +' @TargetDatabase=' + isnull(@TargetDatabaseName,'null')
+                +'  @TableGroup=' + isnull(@TableGroup,'null')
+                +', @TargetDatabase=' + isnull(@TargetDatabaseName,'null')
                 +', @TargetTable=' + isnull(@TargetTableName,'null')
                 +', @SourceDatabase Name=' + isnull(@SourceDatabaseName,'null')
                 +', @SourceTableName=' + isnull(@SourceTableName,'null')
                 +', @ProcessMode=' + isnull(@ProcessMode,'null')
-                +', @TableGroup=' + isnull(@TableGroup,'null')
                 +', @Debug=' + isnull(convert(varchar,@Debug),'null')
    exec dbo.WriteLog @ProcName=@StoredProcName, @MessageText=@Msg, @Status='Starting'
 
@@ -133,10 +133,19 @@ Order of operations:
 
    end
 
-   exec dbo.WriteLog @ProcName=@StoredProcName, @Status='Finished'
+   set @Msg = 'Finished ' + @StoredProcName + ', filters:'
+                +'  @TableGroup=' + isnull(@TableGroup,'null')
+                +', @TargetDatabase=' + isnull(@TargetDatabaseName,'null')
+                +', @TargetTable=' + isnull(@TargetTableName,'null')
+                +', @SourceDatabase Name=' + isnull(@SourceDatabaseName,'null')
+                +', @SourceTableName=' + isnull(@SourceTableName,'null')
+                +', @ProcessMode=' + isnull(@ProcessMode,'null')
+                +', @Debug=' + isnull(convert(varchar,@Debug),'null')
+   exec dbo.WriteLog @ProcName=@StoredProcName, @MessageText=@Msg, @Status='Finished'
 
    if @ErrorFlag = 1
       raiserror (@ErrorMessage, 16, 1)
 
 end
 go
+

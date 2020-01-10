@@ -321,6 +321,7 @@ begin
             ,(COLUMN_LIST)
          FROM (TARGET_LOCATION) as s
          WHERE (ACTIVE_COLUMN) = 1
+		 AND (SK_COLUMN) IN (SELECT (SK_COLUMN) FROM (LOAD_LOCATION))
       ), results as 
       (
          SELECT 
@@ -443,7 +444,7 @@ begin
 
          set @RowsAffected = isnull(@@ROWCOUNT,0)
          exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
-                          ,@MessageText=@mergeSQL, @Status=@Msg
+                          ,@MessageText=@mergeSQL, @Status='Merged into destination'
                           ,@RowsAffected=@RowsAffected
       end
 
@@ -515,8 +516,8 @@ begin
                           ,@Status=@Msg
       end
 
-      -- PART 7b: Truncate the load and diff tables, to save space
-      set @cleanupSQL=N'truncate table '+@LoadTableName
+      -- PART 7b: Drop the load and diff tables, to save space
+      set @cleanupSQL=N'drop table '+@LoadTableName
 
       if @Debug=1
       begin
@@ -527,10 +528,10 @@ begin
          exec (@cleanupSQL)
 
          exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
-                          ,@Status='Truncated load table', @MessageText=@cleanupSQL
+                          ,@Status='Dropped load table', @MessageText=@cleanupSQL
       end
 
-      set @cleanupSQL=N'truncate table '+@DiffTableName
+      set @cleanupSQL=N'drop table '+@DiffTableName
 
       if @Debug=1
       begin
@@ -541,7 +542,7 @@ begin
          exec (@cleanupSQL)
 
          exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
-                          ,@Status='Truncated diff table', @MessageText=@cleanupSQL
+                          ,@Status='Dropped diff table', @MessageText=@cleanupSQL
 
          exec dbo.WriteLog @ProcName=@StoredProcName, @ObjectName=@TargetLocation
                           ,@Status='Finished'
